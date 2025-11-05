@@ -13,7 +13,7 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 # ======== GPT-5 呼び出し ========
 def _call_gpt5(messages, temperature=0.8, max_tokens=800):
     return openai.ChatCompletion.create(
-        model="gpt-5-turbo",   # まだ開放されていない場合は "gpt-4o" に変更
+        model="gpt-4o",   # まだ開放されていない場合は "gpt-4o" に変更
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
