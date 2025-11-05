@@ -116,19 +116,18 @@ with st.expander("接続テスト（任意）", expanded=False):
 # ================== 送信関数 ==================
 def floria_say(user_text: str):
     # ログ丸め
-    if len(st.session_state["messages"]) > MAX_LOG:
-        base_sys = st.session_state["messages"][0]
-        st.session_state["messages"] = [base_sys] + st.session_state["messages"][-(MAX_LOG-1):]
+    if len(st.session_state.messages) > MAX_LOG:
+        base_sys = st.session_state.messages[0]
+        st.session_state.messages = [base_sys] + st.session_state.messages[-(MAX_LOG-1):]
 
     # ユーザー発言を履歴に追加
-    st.session_state["messages"].append({"role": "user", "content": user_text})
+    st.session_state.messages.append({"role": "user", "content": user_text})
 
-    # 送るコンテキスト
-    base = st.session_state["messages"]
+    # 送るコンテキスト（system + 直近）
+    base = st.session_state.messages
     max_slice = 60
     convo = [base[0]] + base[-max_slice:]
 
-    # GPT-4o → Hermes フォールバック
     with st.spinner(f"{PARTNER_NAME}が考えています…"):
         reply, meta = call_with_fallback(
             convo,
@@ -136,12 +135,14 @@ def floria_say(user_text: str):
             max_tokens=int(max_tokens),
         )
 
-    # 詳細metaをそのまま保存（デバッグ表示用）
+    # デバッグ表示用
     st.session_state["_last_call_meta"] = meta
 
-    # 応答を追加
-    st.session_state["messages"].append({"role": "assistant", "content": reply})
+    if not reply.strip():
+        reply = "（返答の生成に失敗しました…）"
 
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+  
 # ================== 会話表示 ==================
 st.subheader("会話")
 dialog = [m for m in st.session_state["messages"] if m["role"] in ("user", "assistant")]
