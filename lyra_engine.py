@@ -8,12 +8,30 @@ import streamlit as st
 
 from personas import get_persona
 from llm_router import call_with_fallback
-from components import PreflightChecker, DebugPanel, ChatLog
-
+from components import PreflightChecker, DebugPanel, ChatLog, PlayerInput
 
 # ページ全体の基本設定
 st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
-st.markdown("""<style> ... CSS はここにそのまま ... </style>""", unsafe_allow_html=True)
+st.markdown("""
+<style>
+.chat-bubble {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 6px 0;
+    background-color: #f9f9f9;
+}
+.chat-bubble.user {
+    border-color: #66aaff;
+    background-color: #e8f2ff;
+}
+.chat-bubble.assistant {
+    border-color: #999;
+    background-color: #f2f2f2;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 class LyraEngine:
@@ -42,6 +60,7 @@ class LyraEngine:
         self.preflight = PreflightChecker(self.openai_key, self.openrouter_key)
         self.debug_panel = DebugPanel()
         self.chat_log = ChatLog(self.partner_name, self.DISPLAY_LIMIT)
+        self.player_input = PlayerInput()   # ← ここ追加
 
         # ★ セッション状態の初期化
         self._init_session_state()
@@ -77,6 +96,19 @@ class LyraEngine:
         # 会話ログ
         messages: List[Dict[str, str]] = self.state.get("messages", [])
         self.chat_log.render(messages)
+
+        # 会話ログ
+        messages: List[Dict[str, str]] = self.state.get("messages", [])
+        self.chat_log.render(messages)
+        
+        # 入力欄
+        user_text = self.player_input.render()
+        if user_text:
+            st.session_state["messages"].append({"role": "user", "content": user_text})
+            st.session_state["messages"].append(
+                {"role": "assistant", "content": "（まだ応答生成ロジック未実装）"}
+            )
+            st.experimental_rerun()
 
 
 # ★★★ エントリーポイント ★★★
