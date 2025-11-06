@@ -1,22 +1,3 @@
-# lyra_engine.py
-
-import os
-import json
-import time
-from typing import Any, Dict, List, Tuple
-
-import streamlit as st
-
-from personas import get_persona
-from llm_router import call_with_fallback
-from components import PreflightChecker, DebugPanel, ChatLog   # ★ ここ追加
-
-
-st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
-st.write("✅ Lyra Engine 起動テスト：ここまでは通ってます。")
-st.markdown("""<style> ... CSS はそのまま ... </style>""", unsafe_allow_html=True)
-
-
 class LyraEngine:
     MAX_LOG = 500
     DISPLAY_LIMIT = 20000
@@ -49,3 +30,20 @@ class LyraEngine:
     @property
     def state(self):
         return st.session_state
+
+    # ▼▼▼ ここから新規追記 ▼▼▼
+    def render(self):
+        """ページ全体の描画をまとめて行う"""
+
+        # Preflight（APIキーなどのチェック）
+        st.write("🛫 PreflightChecker.render() 呼び出し前")
+        self.preflight.render()
+        st.write("🛬 PreflightChecker.render() 呼び出し後")
+
+        # DebugPanel はサイドバーに出しておく
+        with st.sidebar:
+            self.debug_panel.render()
+
+        # メインエリアにチャット本体
+        self.chat_log.render()
+    # ▲▲▲ 新規追記ここまで ▲▲▲
