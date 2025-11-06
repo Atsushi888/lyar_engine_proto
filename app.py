@@ -2,7 +2,7 @@
 
 import os, json, html, time, streamlit as st
 from personas import get_persona
-# from llm_router import call_with_fallback
+from llm_router import call_with_fallback
 
 
 # ================== 定数（人格から取得） ==================
