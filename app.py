@@ -1,13 +1,12 @@
 # app.py — Lyra Engine Prototype (Streamlit Edition, GPT-4o + Hermes fallback)
 
 import os, json, html, time, streamlit as st
-from persona_floria_ja import get_default_persona  # 現時点ではデフォルト人格として利用
 from personas import get_persona
 # from llm_router import call_with_fallback
 
 
 # ================== 定数（人格から取得） ==================
-# persona = get_default_persona()
+# persona = get_dpersona()
 persona = get_persona( "floria_ja" )
 SYSTEM_PROMPT = persona.system_prompt
 STARTER_HINT = persona.starter_hint
