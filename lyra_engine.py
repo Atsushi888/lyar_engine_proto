@@ -108,37 +108,39 @@ class LyraEngine:
     def render(self) -> None:
         # ここまで来ているかの確認
         st.write("✅ Lyra Engine 起動テスト：render() まで来てます。")
-
+    
         # Preflight（キー診断）
         st.write("🛫 PreflightChecker.render() 呼び出し前")
         self.preflight.render()
         st.write("🛬 PreflightChecker.render() 呼び出し後")
-
+    
         # デバッグパネル（サイドバー）
         llm_meta = self.state.get("llm_meta")
         with st.sidebar:
             self.debug_panel.render(llm_meta)
-
-        # ① まず「今時点の」会話ログを表示しておく
+    
+        # ① まず現在の会話ログを描画（この時点では前回までの状態）
         messages: List[Dict[str, str]] = self.state.get("messages", [])
         self.chat_log.render(messages)
-
-        # ② その下に入力欄を出す
+    
+        # ② 入力欄（下）
         user_text = self.player_input.render()
-
-        # ③ 入力があったら LLM に投げる（この時点でもログは画面に残っている）
+    
+        # ③ 入力があったら LLM に投げる
         if user_text:
-            with st.spinner("フローリアが考えています…"):
-                # LyraCore に丸投げして 1 ターン進める
+            with st.spinner("フローリアが返事を考えています…"):
                 updated_messages, meta = self.core.proceed_turn(
                     user_text,
                     self.state,
                 )
-
-            # セッション更新（デバッグ用メタ情報も）
+    
+            # セッション更新
             self.state["messages"] = updated_messages
             self.state["llm_meta"] = meta
-
+    
+            # ④ ここでページを「丸ごと」描き直す
+            st.rerun()
+        
 if __name__ == "__main__":
     engine = LyraEngine()
     engine.render()
