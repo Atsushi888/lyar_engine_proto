@@ -8,7 +8,11 @@ import streamlit as st
 
 from personas import get_persona
 from llm_router import call_with_fallback
-from components import PreflightChecker, DebugPanel, ChatLog, PlayerInput
+#from components import PreflightChecker, DebugPanel, ChatLog, PlayerInput
+from components.preflight import PreflightChecker
+from components.debug_panel import DebugPanel
+from components.chat_log import ChatLog
+from components.player_input import PlayerInput
 
 # ページ全体の基本設定
 st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
