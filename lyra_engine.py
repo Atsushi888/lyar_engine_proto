@@ -2,17 +2,18 @@
 import os
 import json
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, Listf
 
 import streamlit as st
 
 from personas import get_persona
 from llm_router import call_with_fallback
 #from components import PreflightChecker, DebugPanel, ChatLog, PlayerInput
-import components.preflight as preflight
-import components.debug_panel as debug_panel
-import components.chat_log as chat_log
-import components.player_input as player_input
+# import components.preflight as preflight
+# import components.debug_panel as debug_panel
+# import components.chat_log as chat_log
+# import components.player_input as player_input
+from components import PreflightChecker
 
 # ページ全体の基本設定
 st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
@@ -61,7 +62,7 @@ class LyraEngine:
             os.environ["OPENROUTER_API_KEY"] = self.openrouter_key
 
         # UI コンポーネント生成
-        # self.preflight = PreflightChecker(self.openai_key, self.openrouter_key)
+        self.preflight = PreflightChecker(self.openai_key, self.openrouter_key)
         # self.debug_panel = DebugPanel()
         # self.chat_log = ChatLog(self.partner_name, self.DISPLAY_LIMIT)
         # self.player_input = PlayerInput()   # ← ここ追加
