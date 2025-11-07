@@ -1,44 +1,40 @@
 # components/player_input.py
 import streamlit as st
 
-TEXT_KEY = "user_input_box"
-FORM_KEY = "user_input_form"
-
 
 class PlayerInput:
-    """ユーザーの入力欄＋送信ボタン担当"""
+    """ユーザーの入力欄 + 送信ボタンを担当"""
+
+    def __init__(
+        self,
+        key_input: str = "user_input_box",
+        key_button: str = "send_button",
+    ) -> None:
+        self.key_input = key_input
+        self.key_button = key_button
 
     def render(self) -> str:
-        """
-        入力欄と「送信」ボタンを描画し、
-        ボタンが押されたときだけ確定テキストを返す。
-        それ以外は空文字を返す。
-        """
+        """入力欄を表示して、送信されたテキストを返す（なければ空文字）"""
 
-        # ここでは session_state に触らない
-        # （ストリームリット側が自動で作るのに任せる）
+        # テキストエリア（高さはお好みで調整してね）
+        user_input = st.text_area(
+            "あなたの発言を入力:",
+            key=self.key_input,
+            height=160,
+        )
 
-        with st.form(key=FORM_KEY):
-            user_input = st.text_area(
-                "あなたの発言を入力:",
-                key=TEXT_KEY,
-                height=160,
-            )
-            submitted = st.form_submit_button("送信")
+        # 送信ボタン
+        send_clicked = st.button("送信", key=self.key_button)
 
-        if not submitted:
-            return ""
+        if send_clicked:
+            text = user_input.strip()
 
-        text = (user_input or "").strip()
-        if not text:
-            return ""
+            # ★ここがポイント：送信後に入力欄をクリア
+            st.session_state[self.key_input] = ""
 
-        # 入力欄をクリアしたいが、ここでの書き込みが環境によっては
-        # StreamlitAPIException を出すことがあるので保険をかける
-        try:
-            st.session_state[TEXT_KEY] = ""
-        except Exception:
-            # 失敗したら「クリアされない」だけでよしとする
-            pass
+            # 空じゃなければ返す（LyraEngine 側で LLM 呼び出し）
+            if text:
+                return text
 
-        return text
+        # 送信されていない / 空文字のときは何も返さない
+        return ""
