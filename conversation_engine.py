@@ -1,15 +1,9 @@
-# conversation_engine.py — LLM 呼び出しを統括する会話エンジン層
+# conversation_engine.py
 from typing import Any, Dict, List, Tuple
-
 from llm_router import call_with_fallback
 
 
 class LLMConversation:
-    """
-    system プロンプトと LLM 呼び出しをまとめた会話エンジン層。
-    将来的にキャラAI制御、感情状態、モード切替などの拡張もここに統合。
-    """
-
     def __init__(
         self,
         system_prompt: str,
@@ -20,41 +14,51 @@ class LLMConversation:
         self.temperature = float(temperature)
         self.max_tokens = int(max_tokens)
 
-        # 会話スタイルの補助ヒント
         self.style_hint = (
-            "あなたはフローリアという女性キャラクターとして、日本語で会話します。"
-            "舞台指示や 'onstage:' 'onscreen:' などの英語のタグは使わず、"
-            "普通の会話文または地の文だけで、1〜3文程度の長さで返答してください。"
+            "ユーザーは日本語で物語の本文（地の文と会話文）だけを送ります。\n"
+            "あなたはフローリアという女性キャラクターとして、その物語世界の中に存在しています。\n"
+            "直前のユーザーの文章をよく読み、その続きとして自然につながる内容を書いてください。\n"
+            "・ユーザーの最後の文を繰り返さないこと。\n"
+            "・地の文と、必要ならフローリアや他の登場人物の台詞を混ぜても構いません。\n"
+            "・長さは日本語で2〜4文程度にしてください。\n"
+            "・舞台指示や 'onstage:' 'onscreen:' などの英語のタグは絶対に使わないこと。"
         )
 
-    # ===== メッセージ構築 =====
     def build_messages(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """
-        system プロンプト + 会話履歴を LLM API 向けに整形。
-        """
         system_content = self.system_prompt
         if self.style_hint:
             system_content += "\n\n" + self.style_hint
 
-        llm_messages: List[Dict[str, str]] = [
+        messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_content}
         ]
-        llm_messages.extend(history)
-        return llm_messages
 
-    # ===== 応答生成 =====
+        # ここは「直近 user だけ使う」か「履歴全部送る」か、好きな方でOK
+        # 今は例として history 全部を投げる版：
+        messages.extend(history)
+        return messages
+
     def generate_reply(
         self,
         history: List[Dict[str, str]],
     ) -> Tuple[str, Dict[str, Any]]:
-        """
-        llm_router.call_with_fallback() を呼び出し、
-        LLM 応答とメタ情報を返す。
-        """
+        # 🔴 ここで実際に LLM に渡す messages を作る
         messages = self.build_messages(history)
+
+        # LLM 呼び出し
         text, meta = call_with_fallback(
             messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
+
+        # 🔴 デバッグ用に、「何を投げたか」を meta に埋め込む
+        meta = dict(meta)  # 念のためコピー
+        meta["prompt_messages"] = messages  # 生 messages
+        # 人間が読みやすいテキスト版も
+        meta["prompt_preview"] = "\n\n".join(
+            f"[{m['role']}] {m['content'][:200]}"
+            for m in messages
+        )
+
         return text, meta
