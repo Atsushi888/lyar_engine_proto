@@ -96,19 +96,17 @@ class LyraEngine:
         with st.sidebar:
             self.debug_panel.render()
 
-        # 会話ログ
-        messages: List[Dict[str, str]] = self.state.get("messages", [])
-        self.chat_log.render(messages)
-        
-        # 入力欄
+        # 先に「入力 → messages への追加」まで済ませる
         user_text = self.player_input.render()
         if user_text:
             st.session_state["messages"].append({"role": "user", "content": user_text})
             st.session_state["messages"].append(
                 {"role": "assistant", "content": "（まだ応答生成ロジック未実装）"}
             )
-            st.experimental_rerun()
 
+        # そのうえで、最後に会話ログを描画
+        messages: List[Dict[str, str]] = self.state.get("messages", [])
+        self.chat_log.render(messages)
 
 # ★★★ エントリーポイント ★★★
 if __name__ == "__main__":
