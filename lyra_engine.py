@@ -13,7 +13,7 @@ from llm_router import call_with_fallback
 # import components.debug_panel as debug_panel
 # import components.chat_log as chat_log
 # import components.player_input as player_input
-from components import PreflightChecker, DebugPanel, ChatLog
+from components import PreflightChecker, DebugPanel, ChatLog, PlayerInput
 
 # ページ全体の基本設定
 st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
@@ -65,7 +65,7 @@ class LyraEngine:
         self.preflight = PreflightChecker(self.openai_key, self.openrouter_key)
         self.debug_panel = DebugPanel()
         self.chat_log = ChatLog(self.partner_name, self.DISPLAY_LIMIT)
-        # self.player_input = PlayerInput()   # ← ここ追加
+        self.player_input = PlayerInput()   # ← ここ追加
 
         # ★ セッション状態の初期化
         self._init_session_state()
@@ -101,13 +101,13 @@ class LyraEngine:
         self.chat_log.render(messages)
         
         # 入力欄
-        # user_text = self.player_input.render()
-        # if user_text:
-        #     st.session_state["messages"].append({"role": "user", "content": user_text})
-        #     st.session_state["messages"].append(
-        #         {"role": "assistant", "content": "（まだ応答生成ロジック未実装）"}
-        #     )
-        #     st.experimental_rerun()
+        user_text = self.player_input.render()
+        if user_text:
+            st.session_state["messages"].append({"role": "user", "content": user_text})
+            st.session_state["messages"].append(
+                {"role": "assistant", "content": "（まだ応答生成ロジック未実装）"}
+            )
+            st.experimental_rerun()
 
 
 # ★★★ エントリーポイント ★★★
