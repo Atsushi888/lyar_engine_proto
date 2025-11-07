@@ -1,5 +1,4 @@
 # conversation_engine.py — LLM 呼び出しを統括する会話エンジン層
-import os
 from typing import Any, Dict, List, Tuple
 
 from llm_router import call_with_fallback
@@ -21,13 +20,24 @@ class LLMConversation:
         self.temperature = float(temperature)
         self.max_tokens = int(max_tokens)
 
+        # 会話スタイルの補助ヒント
+        self.style_hint = (
+            "あなたはフローリアという女性キャラクターとして、日本語で会話します。"
+            "舞台指示や 'onstage:' 'onscreen:' などの英語のタグは使わず、"
+            "普通の会話文または地の文だけで、1〜3文程度の長さで返答してください。"
+        )
+
     # ===== メッセージ構築 =====
     def build_messages(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
         system プロンプト + 会話履歴を LLM API 向けに整形。
         """
+        system_content = self.system_prompt
+        if self.style_hint:
+            system_content += "\n\n" + self.style_hint
+
         llm_messages: List[Dict[str, str]] = [
-            {"role": "system", "content": self.system_prompt}
+            {"role": "system", "content": system_content}
         ]
         llm_messages.extend(history)
         return llm_messages
