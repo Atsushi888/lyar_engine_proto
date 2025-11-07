@@ -93,6 +93,7 @@ class LyraEngine:
 
     # ===== セッション初期化 =====
     def _init_session_state(self) -> None:
+        # 会話メッセージ
         if "messages" not in st.session_state:
             st.session_state["messages"] = []
             if self.starter_hint:
@@ -100,8 +101,13 @@ class LyraEngine:
                     {"role": "assistant", "content": self.starter_hint}
                 )
 
+        # LLM メタ情報（DebugPanel 用）
         if "llm_meta" not in st.session_state:
             st.session_state["llm_meta"] = None
+
+        # ★ 入力欄までスクロールするかどうかのフラグ
+        if "scroll_to_input" not in st.session_state:
+            st.session_state["scroll_to_input"] = False
 
     @property
     def state(self):
@@ -128,7 +134,6 @@ class LyraEngine:
         # ② プレイヤー入力欄
         user_text = self.player_input.render()
 
-        # ③ 入力があれば LLM に投げて結果更新
         if user_text:
             with st.spinner("フローリアが返事を考えています…"):
                 updated_messages, meta = self.core.proceed_turn(
@@ -140,9 +145,11 @@ class LyraEngine:
             self.state["messages"] = updated_messages
             self.state["llm_meta"] = meta
 
-            # 再描画
-            st.rerun()
+            # ★ 次のターンでは入力欄までスクロールしてもらう
+            self.state["scroll_to_input"] = True
 
+            # ページを「丸ごと」描き直す
+            st.rerun()
 
 # ===== エントリーポイント =====
 if __name__ == "__main__":
