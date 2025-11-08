@@ -139,9 +139,6 @@ class LyraEngine:
             self.state["messages"] = updated_messages
             self.state["llm_meta"] = meta
 
-            # ★ 次の rerun で入力欄をクリアさせる
-            self.player_input.clear_next_turn()
-
             # （必要ならスクロール用のフラグもここで立てる）
             # self.state["scroll_to_input"] = True
 
