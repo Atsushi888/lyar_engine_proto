@@ -18,7 +18,7 @@ class ChatLog:
             border-radius: 8px;
         
             /* 内側の余白をかなり控えめにして、左＆上を詰める */
-            padding: 4px 10px 6px 10px;   /* 上, 右, 下, 左 */
+            padding: 0px 10px 6px 0px;   /* 上, 右, 下, 左 */
         
             /* バブル同士の間隔も少しだけ詰める */
             margin: 4px 0;
