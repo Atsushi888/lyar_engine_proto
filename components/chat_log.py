@@ -20,7 +20,7 @@ class ChatLog:
                 border-radius: 8px;
 
                 /* ← 上の余白を限界まで削る */
-                padding: 40px 20px 8px 20px;   /* 上0, 右10, 下8, 左10 */
+                padding: 0px 20px 8px 20px;   /* 上0, 右10, 下8, 左10 */
 
                 margin: 0;
                 background-color: #f9f9f9;
@@ -77,7 +77,7 @@ class ChatLog:
                 f"""
                 <div class="chat-bubble-container">
                     <div class="chat-bubble {role_class}">
-                        <span class="chat-name">{name}:</span><br>{safe_txt}
+                        <span class="chat-name">{name}:</span><br><br>{safe_txt}
                     </div>
                 </div>
                 """,
