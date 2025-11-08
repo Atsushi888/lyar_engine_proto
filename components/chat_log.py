@@ -27,12 +27,12 @@ class ChatLog:
             txt = html.escape(shown)
 
             if role == "user":
-                st.markdown(
+                st.text(
                     f"<div class='chat-bubble user'><b>あなた：</b><br>{txt}</div>",
                     unsafe_allow_html=True,
                 )
             else:
-                st.markdown(
+                st.text(
                     f"<div class='chat-bubble assistant'><b>{self.partner_name}：</b><br>{txt}</div>",
                     unsafe_allow_html=True,
                 )
