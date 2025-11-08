@@ -16,12 +16,17 @@ class ChatLog:
         .chat-bubble {
             border: 1px solid #ccc;
             border-radius: 8px;
-            padding: 6px 12px;        /* ← 上下の余白を控えめにして行頭を詰める */
-            margin: 6px 0;
+        
+            /* 内側の余白をかなり控えめにして、左＆上を詰める */
+            padding: 4px 10px 6px 10px;   /* 上, 右, 下, 左 */
+        
+            /* バブル同士の間隔も少しだけ詰める */
+            margin: 4px 0;
+        
             background-color: #f9f9f9;
-            white-space: pre-wrap;    /* 改行保持 */
-            text-align: left;         /* 左寄せ */
-            line-height: 1.55;        /* お淑やかで読みやすい行間 */
+            white-space: pre-wrap;        /* 改行保持 */
+            text-align: left;             /* 左寄せ */
+            line-height: 1.5;
         }
         .chat-bubble.assistant {
             background-color: #f2f2f2;
