@@ -6,7 +6,8 @@ from multi_ai import AIResponder
 
 
 class LyraCore:
-    def __init__(self):
+    def __init__(self, conversation=None):
+        self.conversation = conversation or []
         persona = get_persona()
 
         # 各モデルのResponderを準備
