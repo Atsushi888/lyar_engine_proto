@@ -1,26 +1,18 @@
-# components/model_viewer.py
-
 from typing import Any, Dict
 import streamlit as st
 
 
 class MultiModelViewer:
-    """
-    llm_meta に入っている各モデルの reply を縦に並べて表示するビューア。
-    """
-
     def __init__(self, title: str = "モデル比較"):
         self.title = title
-
-        # 将来モデルを増やしたときはここに追記するだけでOK
         self.model_labels = {
             "gpt4o": "GPT-4o",
             "hermes": "Hermes",
-            # "claude": "Claude 3" みたいに増やせる
         }
 
     def render(self, llm_meta: Dict[str, Any] | None) -> None:
-        if not llm_meta:
+        # ★ ここで None や空を弾く
+        if not isinstance(llm_meta, dict) or not llm_meta:
             st.caption("（まだレスポンスがありません）")
             return
 
