@@ -4,7 +4,7 @@ from typing import Any, Dict
 import json
 import streamlit as st
 
-from components.multi_ai_response import MultiAIResponse
+from deliberation.multi_ai_response import MultiAIResponse
 
 
 class DebugPanel:
