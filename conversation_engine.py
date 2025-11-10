@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Tuple
 from deliberation.ai_response_collector import MultiAIResponseCollector
-from components.multi_ai_response import PARTICIPATING_MODELS
+from deliberation.multi_ai_response import PARTICIPATING_MODELS
 
 
 class LLMConversation:
