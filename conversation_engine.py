@@ -79,61 +79,47 @@ class LLMConversation:
         self,
         history: List[Dict[str, str]],
     ) -> Tuple[str, Dict[str, Any]]:
-        """
-        会話履歴を受け取り、LLM 応答テキストとメタ情報を返す。
-
-        裏側では：
-          - GPT-4o の結果を取得
-          - llm_meta["models"]["gpt4o"] として登録
-          - 同じ内容を llm_meta["models"]["hermes"]（ダミー）にも登録
-        """
-
         messages = self.build_messages(history)
 
-        # メイン応答（現状 GPT-4o のみ）
-        text, meta = call_with_fallback(
+        # GPT-4o 本体
+        text_gpt, meta_gpt = call_with_fallback(
             messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
 
-        meta = dict(meta)  # 安全に編集できるようコピー
+        # Hermes（本物）
+        text_hermes, meta_hermes = call_hermes(
+            messages=messages,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+        )
 
-        # DebugPanel / Backstage 用の情報を追加
+        # Debug 用共通情報
+        meta: Dict[str, Any] = dict(meta_gpt)
         meta["prompt_messages"] = messages
         meta["prompt_preview"] = "\n\n".join(
             f"[{m['role']}] {m['content'][:300]}"
             for m in messages
         )
 
-        # usage 情報
-        usage_main = meta.get("usage_main") or meta.get("usage") or {}
-        
-        # 各モデルの結果を統一フォーマットに
-        gpt_entry = {
-            "reply": text,
-            "usage": usage_main,
-            "route": meta.get("route", "gpt"),
-            "model_name": meta.get("model_main", "gpt-4o"),
-        }
-        
-        # 将来的に別AI（Hermesなど）を差し込む場合もここで集約
-        models = {
-            "gpt4o": gpt_entry,
+        usage_gpt = meta_gpt.get("usage_main") or {}
+        usage_hermes = meta_hermes.get("usage_main") or {}
+
+        meta["models"] = {
+            "gpt4o": {
+                "reply": text_gpt,
+                "usage": usage_gpt,
+                "route": meta_gpt.get("route", "gpt"),
+                "model_name": meta_gpt.get("model_main", "gpt-4o"),
+            },
             "hermes": {
-                "reply": text,  # ダミーまたは実際のhermes_text
-                "usage": usage_main,
-                "route": "dummy-hermes",
-                "model_name": "Hermes (dummy)",
+                "reply": text_hermes,
+                "usage": usage_hermes,
+                "route": meta_hermes.get("route", "openrouter"),
+                "model_name": meta_hermes.get("model_main", "Hermes"),
             },
         }
-        
-        # meta に他のキーが混在しないように、必要最小限に再構築
-        meta_clean = {
-            "models": models,
-            "prompt_preview": "\n\n".join(
-                f"[{m['role']}] {m['content'][:300]}" for m in messages
-            ),
-        }
-        
-        return text, meta_clean
+
+        # 表側に返すのは GPT-4o の返答
+        return text_gpt, meta
