@@ -19,7 +19,7 @@ class DebugPanel:
 
     def __init__(self, title: str = "Debug Panel") -> None:
         self.title = title
-        self.multi_ai_response = MultiAIResponse()
+        # self.multi_ai_response = MultiAIResponse()
 
     def render(self, llm_meta: Dict[str, Any] | None) -> None:
         st.markdown(f"### 🛠 {self.title}")
