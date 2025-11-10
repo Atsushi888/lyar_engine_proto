@@ -1,38 +1,61 @@
-# lyra_core.py
+# lyra_core.py — Lyra Engine の会話制御コア
+#
+# 役割：
+#   ・Streamlit の state から messages を取り出す
+#   ・ユーザー発言を履歴に追加
+#   ・LLMConversation に投げて応答と meta をもらう
+#   ・アシスタント発言を履歴に追加して返す
+#
+#   ★ マルチAIまわりの構造は全部 LLMConversation 側に任せる。
+#     ここでは llm_meta を一切ラップしない。
 
-from typing import Dict, List, Tuple
-from personas.persona_floria_ja import get_persona
-from multi_ai import AIResponder
+from __future__ import annotations
+
+from typing import Any, Dict, List, Tuple
+
+from conversation_engine import LLMConversation
+
 
 class LyraCore:
-    def __init__(self, conversation):
-        persona = get_persona()
-        self.conversation = conversation  # 使うなら保持
+    def __init__(self, conversation: LLMConversation) -> None:
+        self.conversation = conversation
 
-        self.responder_4o = AIResponder(
-            system_prompt=persona.system_prompt,
-            style_hint=persona.style_hint,
-        )
-        self.responder_hermes = AIResponder(
-            system_prompt=persona.system_prompt,
-            style_hint=persona.style_hint,
-        )
-        
-    def proceed_turn(self, user_text: str, state) -> Tuple[List[Dict[str, str]], Dict]:
-        messages = state.get("messages", [])
+    def proceed_turn(
+        self,
+        user_text: str,
+        state: Dict[str, Any],
+    ) -> Tuple[List[Dict[str, str]], Dict[str, Any]]:
+        """
+        1ターン分の会話を進める。
+
+        入力:
+          user_text : ユーザーの最新発言（テキスト）
+          state     : st.session_state をそのまま渡してくる想定
+
+        戻り値:
+          updated_messages : 更新後の messages リスト
+          llm_meta         : LLM 側メタ情報（LLMConversation から返ってきたものをそのまま）
+        """
+        # これまでの履歴を取得（なければ空で初期化）
+        messages: List[Dict[str, str]] = state.get("messages", [])
+        # コピーを作って操作しておくと安心
+        messages = list(messages)
+
+        # ユーザー発言を履歴に追加
         messages.append({"role": "user", "content": user_text})
 
-        # 各モデルに同じメッセージを渡す
-        reply_4o, meta_4o = self.responder_4o.reply(messages)
-        reply_hermes, meta_hermes = self.responder_hermes.reply(messages)
+        # LLMConversation に丸投げして、応答と meta を受け取る
+        reply_text, meta = self.conversation.generate_reply(messages)
 
-        # メイン出力（例: GPT-4o版）をログに追加
-        messages.append({"role": "assistant", "content": reply_4o})
+        # アシスタント発言を履歴に追加
+        messages.append({"role": "assistant", "content": reply_text})
 
-        # 比較情報をまとめて返す
-        meta = {
-            "gpt4o": {"reply": reply_4o, "meta": meta_4o},
-            "hermes": {"reply": reply_hermes, "meta": meta_hermes},
-        }
+        # ここがポイント：
+        #   以前のように
+        #   llm_meta = {"gpt4o": {"reply": ..., "meta": meta}, ...}
+        #   というラップは一切しない。
+        #
+        #   generate_reply() が返した meta を、そのまま llm_meta として返す。
+        llm_meta: Dict[str, Any] = dict(meta)
 
-        return messages, meta
+        return messages, llm_meta
