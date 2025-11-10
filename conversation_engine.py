@@ -101,21 +101,23 @@ class LLMConversation:
         # 将来的に Hermes や Claude を追加しやすいように dict 形式で構築
         usage_main = meta.get("usage_main") or meta.get("usage") or {}
 
-        meta["models"] = {
-            "gpt4o": {
-                "reply": text,
-                "usage": usage_main,
-                "route": meta.get("route", "gpt"),
-                "model_name": meta.get("model_main", "gpt-4o"),
-            }
+        # ★ ここを書き換え
+        gpt_entry = {
+            "reply": text,
+            "usage": usage_main,
+            "route": meta.get("route", "gpt"),
+            "model_name": meta.get("model_main", "gpt-4o"),
         }
 
-        # Hermesなど別AIを追加する場合は、ここに追記すればOK。
-        # meta["models"]["hermes"] = {
-        #     "reply": hermes_text,
-        #     "usage": hermes_usage,
-        #     "route": "hermes",
-        #     "model_name": "Mistral-Hermes-3",
-        # }
-
+        meta["models"] = {
+            "gpt4o": gpt_entry,
+            "hermes": {
+                # 今はダミー：同じ内容を別モデル扱いにしてみる
+                "reply": text,
+                "usage": usage_main,
+                "route": "dummy-hermes",
+                "model_name": "Hermes (dummy)",
+            },
+        }
+        
         return text, meta
