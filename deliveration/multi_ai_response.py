@@ -1,122 +1,64 @@
+# components/multi_ai_response.py
+
+from __future__ import annotations
+
 from typing import Any, Dict, Optional
-import streamlit as st
+
+from deliberation.judge_ai import JudgeAI
 
 
 class MultiAIResponse:
     """
-    マルチAIの返答を縦に並べて表示するビューアの土台クラス。
+    マルチAI関連の「ロジック中核」クラス。
 
-    ・まずは MultiModelViewer とほぼ同等の挙動
-    ・llm_meta から各モデルの reply を拾って表示する
-    ・将来、JudgeAI や Composite の情報をここに足していく前提
+    ・llm_meta を受け取り、必要なら JudgeAI を実行
+    ・llm_meta に 'judge' を追加する（破壊的更新）
+    ・ビュー側（DebugPanelなど）は、このクラスが整えた llm_meta を読むだけにする
+
+    ※ここでは一切 Streamlit 等のUI処理は持たない。
     """
 
-    def __init__(
-        self,
-        title: str = "マルチAIレスポンス",
-    ) -> None:
-        self.title = title
+    def __init__(self) -> None:
+        self.judge = JudgeAI()
 
-        # ここに追加していくだけでモデルを増やせる
-        # key: llm_meta のキー名 / value: 表示ラベル
-        self.model_labels: Dict[str, str] = {
-            "gpt4o": "GPT-4o",
-            "hermes": "Hermes",
-            # "claude": "Claude 3" みたいに増やしていく
+    def process(self, llm_meta: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        llm_meta を受け取り、JudgeAIを走らせた上で
+        集約情報を返す。
+
+        戻り値の例:
+        {
+            "llm_meta": <元のllm_meta（judgeが追記されている）>,
+            "has_models": True/False,
+            "judge": {...} or None,
         }
-
-    def _extract_model_info(
-        self,
-        llm_meta: Dict[str, Any],
-        key: str,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        llm_meta の形が変わっても耐えられるように、
-        1か所でモデル情報の取り出し方法をまとめておく。
-
-        想定しているパターン：
-        1) llm_meta["gpt4o"] = {"reply": "...", ...}
-        2) llm_meta["models"]["gpt4o"] = {"reply": "...", ...}
         """
 
-        if key in llm_meta:
-            info = llm_meta.get(key)
-        else:
-            info = llm_meta.get("models", {}).get(key)
-
-        if not isinstance(info, dict):
-            return None
-        return info
-
-    def render(self, llm_meta: Dict[str, Any] | None) -> None:
-        """
-        llm_meta の中身を見て、各モデルの応答を表示する。
-        まだレスポンスがない場合は何も出さない。
-        """
-
-        # 起動直後など llm_meta が None / 空dict の場合
         if not isinstance(llm_meta, dict) or not llm_meta:
-            st.caption("（まだレスポンスがありません）")
-            return
+            return {
+                "llm_meta": None,
+                "has_models": False,
+                "judge": None,
+            }
 
-        st.markdown(f"### {self.title}")
+        models = llm_meta.get("models")
+        has_models = isinstance(models, dict) and len(models) > 0
 
-        # もし prompt_preview があれば、折りたたみで見られるようにしておく
-        prompt_preview = llm_meta.get("prompt_preview")
-        if isinstance(prompt_preview, str) and prompt_preview.strip():
-            with st.expander("📝 プロンプトプレビュー", expanded=False):
-                st.code(prompt_preview, language="text")
+        judge_result: Optional[Dict[str, Any]] = None
 
-        has_any = False
+        # 2モデル以上あるときだけ審判を実行
+        if has_models and isinstance(models, dict) and len(models) >= 2:
+            if "judge" in llm_meta and isinstance(llm_meta["judge"], dict):
+                judge_result = llm_meta["judge"]
+            else:
+                judge_result = self.judge.run(llm_meta)
+                llm_meta["judge"] = judge_result
+        else:
+            # そもそも比較対象が足りない
+            judge_result = llm_meta.get("judge")
 
-        for key, label in self.model_labels.items():
-            info = self._extract_model_info(llm_meta, key)
-            if not info:
-                continue
-
-            has_any = True
-            reply = info.get("reply") or info.get("text") or "（返信なし）"
-
-            st.markdown(f"#### {label}")
-            st.write(reply)
-
-            # トークン情報などがあれば軽く表示（あればでOK）
-            usage = info.get("usage") or info.get("usage_main")
-            if isinstance(usage, dict) and usage:
-                prompt_tokens = usage.get("prompt_tokens", "？")
-                completion_tokens = usage.get("completion_tokens", "？")
-                total_tokens = usage.get("total_tokens", "？")
-                st.caption(
-                    f"tokens: total={total_tokens}, "
-                    f"prompt={prompt_tokens}, completion={completion_tokens}"
-                )
-
-            st.markdown("---")
-
-        if not has_any:
-            st.caption("（表示可能なモデルがありません）")
-
-    def _render_judge(self, llm_meta: Dict[str, Any]) -> None:
-        judge = llm_meta.get("judge")
-        if not isinstance(judge, dict):
-            return
-    
-        st.markdown("### ⚖️ JudgeAI 判定結果")
-    
-        winner = judge.get("winner", "（不明）")
-        score_diff = judge.get("score_diff", 0.0)
-        comment = judge.get("comment", "")
-    
-        cols = st.columns(2)
-        cols[0].metric("勝者", winner)
-        cols[1].metric(
-            "スコア差",
-            f"{score_diff:.2f}" if isinstance(score_diff, (int, float)) else score_diff,
-        )
-    
-        if comment:
-            st.markdown("**理由:**")
-            st.write(comment)
-    
-        with st.expander("🪶 JudgeAI 生ログ", expanded=False):
-            st.code(str(judge.get("raw", "")), language="text")
+        return {
+            "llm_meta": llm_meta,
+            "has_models": has_models,
+            "judge": judge_result,
+        }
