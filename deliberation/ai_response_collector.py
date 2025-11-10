@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+
+from components.multi_ai_response import PARTICIPATING_MODELS
 from llm_router import call_with_fallback  # GPT-4o 用（既存）
 # 将来、本物 Hermes を呼ぶときは:
 # from llm_router import call_hermes
@@ -28,7 +30,7 @@ class MultiAIResponseCollector:
         participants: ["gpt4o", "hermes", ...] のようなキー一覧
         primary: 表側に出すメインAIのキー（通常 gpt4o）
         """
-        self.participants = participants
+        self.participants = list( PARTICIPATING_MODELS.keys() )
         self.primary = primary
 
     def collect(
