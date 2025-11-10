@@ -75,15 +75,67 @@ class MultiAIResponse:
         except Exception:
             return None
 
+# components/multi_ai_response.py の中
+
     def _ensure_models(self, llm_meta: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        llm_meta["models"] を返す。なければフォールバックを試す。
+        llm_meta["models"] を返す。
+        なければ:
+          1) 旧形式（top レベルに gpt4o / hermes がいる）から変換
+          2) それも無ければフォールバック（session_state から）
         """
+        # まずは新形式
         models = llm_meta.get("models")
         if isinstance(models, dict) and models:
             return models
 
-        # フォールバックで作ってみる
+        # --- 旧形式からの変換を試す ---
+        legacy_models: Dict[str, Dict[str, Any]] = {}
+
+        # 既知のキーだけ見る（必要なら増やせる）
+        for key in ("gpt4o", "hermes"):
+            entry = llm_meta.get(key)
+            if not isinstance(entry, dict):
+                continue
+
+            reply = entry.get("reply") or ""
+            inner_meta = entry.get("meta") or {}
+            usage = (
+                entry.get("usage")
+                or entry.get("usage_main")
+                or inner_meta.get("usage_main")
+                or inner_meta.get("usage")
+                or {}
+            )
+            route = entry.get("route") or inner_meta.get("route")
+            model_name = (
+                entry.get("model_name")
+                or inner_meta.get("model_main")
+                or key
+            )
+
+            legacy_models[key] = {
+                "reply": reply,
+                "usage": usage,
+                "route": route,
+                "model_name": model_name,
+            }
+
+        # もし gpt4o だけいたら、Hermes(dummy) を複製して 2体にする
+        if "gpt4o" in legacy_models and "hermes" not in legacy_models:
+            g = legacy_models["gpt4o"]
+            legacy_models["hermes"] = {
+                "reply": g.get("reply", ""),
+                "usage": g.get("usage", {}),
+                "route": "dummy-hermes",
+                "model_name": "Hermes (dummy)",
+            }
+
+        if legacy_models:
+            llm_meta["models"] = legacy_models
+            return legacy_models
+
+        # --- ここまで来たら、最後の保険（既存のフォールバック） ---
         fb = self._fallback_models_from_state(llm_meta)
         if fb:
             llm_meta["models"] = fb
