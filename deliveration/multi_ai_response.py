@@ -95,3 +95,28 @@ class MultiAIResponse:
 
         if not has_any:
             st.caption("（表示可能なモデルがありません）")
+
+    def _render_judge(self, llm_meta: Dict[str, Any]) -> None:
+        judge = llm_meta.get("judge")
+        if not isinstance(judge, dict):
+            return
+    
+        st.markdown("### ⚖️ JudgeAI 判定結果")
+    
+        winner = judge.get("winner", "（不明）")
+        score_diff = judge.get("score_diff", 0.0)
+        comment = judge.get("comment", "")
+    
+        cols = st.columns(2)
+        cols[0].metric("勝者", winner)
+        cols[1].metric(
+            "スコア差",
+            f"{score_diff:.2f}" if isinstance(score_diff, (int, float)) else score_diff,
+        )
+    
+        if comment:
+            st.markdown("**理由:**")
+            st.write(comment)
+    
+        with st.expander("🪶 JudgeAI 生ログ", expanded=False):
+            st.code(str(judge.get("raw", "")), language="text")
