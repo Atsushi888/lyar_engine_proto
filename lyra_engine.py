@@ -13,7 +13,6 @@ from components.player_input import PlayerInput
 from conversation_engine import LLMConversation
 from lyra_core import LyraCore
 
-
 # ページ全体の基本設定
 st.set_page_config(page_title="Lyra Engine – フローリア", layout="wide")
 st.markdown(
