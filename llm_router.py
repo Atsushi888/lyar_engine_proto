@@ -10,7 +10,7 @@ MAIN_MODEL = os.getenv("OPENAI_MAIN_MODEL", "gpt-4o")
 # ★ OpenRouter / Hermes 用
 OPENROUTER_API_KEY_INITIAL = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-HERMES_MODEL = os.getenv("OPENROUTER_HERMES_MODEL", "nousresearch/hermes-3")  # ← 実際に使うIDに変えてね
+HERMES_MODEL = os.getenv("OPENROUTER_HERMES_MODEL", "nousresearch/hermes-4-70b")
 
 
 def _call_gpt(
@@ -54,16 +54,15 @@ def _call_hermes(
         }
 
     client_or = OpenAI(
-        api_key=api_key,
         base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
     )
-
     try:
         resp = client_or.chat.completions.create(
             model=HERMES_MODEL,
             messages=messages,
-            temperature=float(temperature),
-            max_tokens=int(max_tokens),
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
     except BadRequestError as e:
         # ★ ここで 400 を受け止めて、テキストとして返す
