@@ -1,3 +1,5 @@
+# components/multi_ai_judge_result_view.py
+
 from __future__ import annotations
 from typing import Any, Dict, Optional
 import streamlit as st
@@ -6,7 +8,7 @@ import streamlit as st
 class MultiAIJudgeResultView:
     """
     判定結果を「受け取って表示するだけ」のビュー。
-    judge dict は judge_ai.py が作る想定。
+    judge は必ず dict を想定（fallback側で空dictを作る）。
     """
 
     def __init__(self, title: str = "Multi AI Judge") -> None:
@@ -24,7 +26,7 @@ class MultiAIJudgeResultView:
         comment = judge.get("comment", "")
 
         cols = st.columns(2)
-        cols[0].metric("勝者", winner)
+        cols[0].metric("勝者", winner if winner is not None else "―")
         cols[1].metric(
             "スコア差",
             f"{score:.2f}" if isinstance(score, (int, float)) else score,
