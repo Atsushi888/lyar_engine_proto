@@ -8,9 +8,12 @@ OPENAI_API_KEY_INITIAL = os.getenv("OPENAI_API_KEY")
 MAIN_MODEL = os.getenv("OPENAI_MAIN_MODEL", "gpt-4o")
 
 # ★ OpenRouter / Hermes 用
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API_KEY_INITIAL = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 HERMES_MODEL = os.getenv("OPENROUTER_HERMES_MODEL", "nousresearch/hermes-4-70b")
+if not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY is not set. Check Streamlit Secrets or environment.")
 
 
 def _call_gpt(
