@@ -6,9 +6,9 @@ from typing import Any, Dict, Optional
 
 import streamlit as st
 
-from deliberation.multi_ai_display_config import MultiAIDisplayConfig
-from deliberation.multi_ai_model_viewer import MultiAIModelViewer
-from deliberation.multi_ai_judge_result_view import MultiAIJudgeResultView
+from components.multi_ai_display_config import MultiAIDisplayConfig
+from components.multi_ai_model_viewer import MultiAIModelViewer
+from components.multi_ai_judge_result_view import MultiAIJudgeResultView
 from deliberation.judge_ai import JudgeAI
 from deliberation.composer_ai import ComposerAI
 
