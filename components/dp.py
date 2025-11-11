@@ -47,6 +47,7 @@ class DebugPanel:
         # --- マルチAIレスポンス（表示も審議も全部ここに委譲） ---
         with st.expander("🧪 マルチAIレスポンスシステム", expanded=True):
             # self.multi_ai_response.render(llm_meta)
+            pass
 
         # --- raw llm_meta ---
         with st.expander("raw llm_meta (開発者向け)", expanded=False):
