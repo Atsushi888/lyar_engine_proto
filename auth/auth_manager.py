@@ -81,10 +81,6 @@ class AuthManager:
     # 画面部品
     # ------------------------------
     def render_login(self, location: str = "main") -> None:
-        """
-        ログインフォームを描画して状態を session_state に反映する。
-        streamlit_authenticator の API 差異に備えてフォールバック実装。
-        """
         # location を正規化
         allowed = {"main", "sidebar", "unrendered"}
         loc = (location or "main").lower()
@@ -92,17 +88,17 @@ class AuthManager:
             loc = "main"
     
         try:
-            # 新API系（kwargs）
+            # 新API（kwargs対応版）
             name, auth_status, username = self.authenticator.login(
                 location=loc,
                 key="lyra_auth_login",
                 fields={"Form name": "Lyra System ログイン"},
             )
         except TypeError:
-            # 旧API系：キーワードで明示的に渡す（positional はズレやすい）
+            # 旧API（位置引数のみ）
             name, auth_status, username = self.authenticator.login(
-                "Lyra System ログイン",
-                location=loc  # ← ここも kwargs にする
+                "Lyra System ログイン",  # form_name
+                loc                      # location（'main' / 'sidebar' / 'unrendered'）
             )
     
         st.session_state["authentication_status"] = auth_status
@@ -115,7 +111,7 @@ class AuthManager:
             st.error("メール / パスワードが違います。")
         else:
             st.info("メール / パスワードを入力してください。")
-
+        
     def render_logout(self, location: str = "sidebar") -> None:
         """ログアウトボタンを表示"""
         try:
