@@ -1,32 +1,25 @@
-# llm_router.py
+# deliberation/llm_router.py
 
 import os
 from typing import Any, Dict, List, Tuple
-from openai import OpenAI, BadRequestError  # ← 追加
+from openai import OpenAI, BadRequestError
 
+# ===== GPT-4o =====
 OPENAI_API_KEY_INITIAL = os.getenv("OPENAI_API_KEY")
 MAIN_MODEL = os.getenv("OPENAI_MAIN_MODEL", "gpt-4o")
 
-# ★ OpenRouter / Hermes 用
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# ===== Hermes / OpenRouter =====
 OPENROUTER_API_KEY_INITIAL = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 HERMES_MODEL = os.getenv("OPENROUTER_HERMES_MODEL", "nousresearch/hermes-4-70b")
-if not OPENROUTER_API_KEY:
-    raise ValueError("OPENROUTER_API_KEY is not set. Check Streamlit Secrets or environment.")
 
 
-def _call_gpt(
-    messages: List[Dict[str, str]],
-    temperature: float,
-    max_tokens: int,
-) -> Tuple[str, Dict[str, Any]]:
+def _call_gpt(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> Tuple[str, Dict[str, Any]]:
     api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY_INITIAL
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY が設定されていません。")
 
     client_openai = OpenAI(api_key=api_key)
-
     resp = client_openai.chat.completions.create(
         model=MAIN_MODEL,
         messages=messages,
@@ -44,39 +37,24 @@ def _call_gpt(
         }
     return text, usage
 
-def _call_hermes(
-    messages: List[Dict[str, str]],
-    temperature: float,
-    max_tokens: int,
-) -> Tuple[str, Dict[str, Any]]:
+
+def _call_hermes(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> Tuple[str, Dict[str, Any]]:
     api_key = os.getenv("OPENROUTER_API_KEY") or OPENROUTER_API_KEY_INITIAL
     if not api_key:
-        # キーが無いなら即ダミー返し
-        return "[Hermes: OPENROUTER_API_KEY 未設定]", {
-            "error": "OPENROUTER_API_KEY not set",
-        }
+        return "[Hermes: OPENROUTER_API_KEY 未設定]", {"error": "OPENROUTER_API_KEY not set"}
 
-    client_or = OpenAI(
-        base_url=OPENROUTER_BASE_URL,
-        api_key=OPENROUTER_API_KEY,
-    )
+    client_or = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
     try:
         resp = client_or.chat.completions.create(
             model=HERMES_MODEL,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            temperature=float(temperature),
+            max_tokens=int(max_tokens),
         )
     except BadRequestError as e:
-        # ★ ここで 400 を受け止めて、テキストとして返す
-        return f"[Hermes BadRequestError: {e}]", {
-            "error": str(e),
-        }
+        return f"[Hermes BadRequestError: {e}]", {"error": str(e)}
     except Exception as e:
-        # それ以外のエラーも一応
-        return f"[Hermes Error: {e}]", {
-            "error": str(e),
-        }
+        return f"[Hermes Error: {e}]", {"error": str(e)}
 
     text = resp.choices[0].message.content or ""
     usage: Dict[str, Any] = {}
@@ -88,15 +66,8 @@ def _call_hermes(
         }
     return text, usage
 
-def call_with_fallback(
-    messages: List[Dict[str, str]],
-    temperature: float = 0.7,
-    max_tokens: int = 800,
-) -> Tuple[str, Dict[str, Any]]:
-    """
-    以前は GPT → Hermes フォールバックだったが、
-    今は GPT-4o 単体のみをメインとして返す。
-    """
+
+def call_with_fallback(messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 800) -> Tuple[str, Dict[str, Any]]:
     meta: Dict[str, Any] = {}
     try:
         text, usage = _call_gpt(messages, temperature, max_tokens)
@@ -110,12 +81,7 @@ def call_with_fallback(
         return "", meta
 
 
-# ★ Hermes 単体を呼ぶ公開関数
-def call_hermes(
-    messages: List[Dict[str, str]],
-    temperature: float = 0.7,
-    max_tokens: int = 800,
-) -> Tuple[str, Dict[str, Any]]:
+def call_hermes(messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 800) -> Tuple[str, Dict[str, Any]]:
     text, usage = _call_hermes(messages, temperature, max_tokens)
     meta: Dict[str, Any] = {
         "route": "openrouter",
