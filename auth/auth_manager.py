@@ -81,24 +81,25 @@ class AuthManager:
     # 画面部品
     # ------------------------------
     def render_login(self, location: str = "main") -> None:
-        # location を正規化
+        # 受け取った location を正規化
         allowed = {"main", "sidebar", "unrendered"}
-        loc = (location or "main").lower()
+        loc = (location or "main").strip().lower()
         if loc not in allowed:
             loc = "main"
     
         try:
-            # 新API（kwargs対応版）
+            # 新しめの streamlit-authenticator（kwargs 版）
             name, auth_status, username = self.authenticator.login(
                 location=loc,
                 key="lyra_auth_login",
                 fields={"Form name": "Lyra System ログイン"},
             )
         except TypeError:
-            # 旧API（位置引数のみ）
+            # 旧版（位置引数のみ）
+            # ※ここで **説明文ではなく `loc` を渡す** のが大事
             name, auth_status, username = self.authenticator.login(
                 "Lyra System ログイン",  # form_name
-                loc                      # location（'main' / 'sidebar' / 'unrendered'）
+                loc                      # ← 'main' / 'sidebar' / 'unrendered'
             )
     
         st.session_state["authentication_status"] = auth_status
@@ -111,7 +112,7 @@ class AuthManager:
             st.error("メール / パスワードが違います。")
         else:
             st.info("メール / パスワードを入力してください。")
-        
+
     def render_logout(self, location: str = "sidebar") -> None:
         """ログアウトボタンを表示"""
         try:
