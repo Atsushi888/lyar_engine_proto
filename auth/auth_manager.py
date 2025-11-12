@@ -1,50 +1,16 @@
-from __future__ import annotations
 import streamlit as st
-import streamlit_authenticator as stauth
-from dataclasses import dataclass
-from typing import Literal, Tuple, Optional
-
-Location = Literal["main", "sidebar"]
-
-@dataclass
-class AuthResult:
-    name: Optional[str]
-    status: Optional[bool]
-    username: Optional[str]
 
 class AuthManager:
+    """タイトル表示だけ残した最小稼働版"""
+
     def __init__(self) -> None:
-        # secrets.toml からそのまま渡す（auto_hash=False で書込を抑止）
-        self._credentials = st.secrets["credentials"]
-        self._cookie      = st.secrets["cookie"]
+        pass
 
-        self.authenticator = stauth.Authenticate(
-            credentials=self._credentials,
-            cookie_name=self._cookie["name"],
-            key=self._cookie["key"],
-            cookie_expiry_days=int(self._cookie.get("expiry_days", 30)),
-            auto_hash=False,             # ←重要：Secrets書換を抑止
-        )
+    def render_login(self, location: str = "main") -> None:
+        """タイトルだけを描画する。フォームは一切出さない。"""
+        st.title("🔐 Lyra System ログイン")
+        st.caption("※ 現在ログインシステムは調整中です。")
 
-    def login(self, form_name: str="Lyra System ログイン",
-              location: Location="main") -> AuthResult:
-        # ★ ここで st.form を使わないこと！ 直接呼ぶ
-        name, auth_status, username = self.authenticator.login(
-            form_name,
-            location=location,           # 'main' or 'sidebar'
-            key="lyra_login"             # 固定キーでOK
-        )
-        return AuthResult(name, auth_status, username)
-
-    def logout(self, location: Location="sidebar") -> None:
-        self.authenticator.logout(location=location, key="lyra_logout")
-
-    def role(self) -> str:
-        # 任意：secretsに保存した役割を返す（未ログイン時は空）
-        u = st.session_state.get("username")
-        if not u: 
-            return ""
-        try:
-            return self._credentials["usernames"][u].get("role","")
-        except Exception:
-            return ""
+    def role(self) -> int:
+        """暫定的に全員ADMIN扱い"""
+        return 9
