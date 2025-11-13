@@ -43,7 +43,7 @@ class LyraEngine:
         self.core = LyraCore(self.conversation)
 
         # UI 構成物（ゲーム画面用）
-        self.preflight  = PreflightChecker(openai_key, openrouter_key)
+        # self.preflight  = PreflightChecker(openai_key, openrouter_key)
         self.chat_log   = ChatLog(self.partner_name, self.DISPLAY_LIMIT)
         self.player_in  = PlayerInput()
 
@@ -65,7 +65,7 @@ class LyraEngine:
     def render(self) -> None:
         """ゲームの“右側メインビュー”を描画（サイドバーはLyraSystemが持つ）"""
         # Preflight
-        self.preflight.render()
+        # self.preflight.render()
 
         # ログ表示
         self.chat_log.render(self.state.messages)
