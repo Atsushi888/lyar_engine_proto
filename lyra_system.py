@@ -38,12 +38,13 @@ class LyraSystem:
         # ============================
         #  開発モード：常に ADMIN 扱い
         # ============================
-        role = Role.ADMIN
+        # role = Role.ADMIN
+        role = Role.USER
 
         # サイドバーに「開発中・認証バイパス中」の注意を出しておく
         with st.sidebar:
             st.markdown("### 画面切替")
-            st.caption("※ 現在は **認証バイパス中（開発モード）** です。")
+            # st.caption("※ 現在は **認証バイパス中（開発モード）** です。")
 
         # 画面切り替え本体を実行
         self.switcher.render(user_role=role)
