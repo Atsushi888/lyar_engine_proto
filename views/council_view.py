@@ -3,7 +3,15 @@
 from __future__ import annotations
 import streamlit as st
 
+from council.council_manager import CouncilManager
+
+
 class CouncilView:
+    """
+    会談システムの薄いラッパー。
+    実作業は CouncilManager.render() に丸投げ。
+    """
+
     def render(self) -> None:
-        st.title("🗣 会談システム（Council Prototype）")
-        st.caption("※ 現在はプレースホルダーです。ここに会談システムが入ります。")
+        manager = CouncilManager(st.session_state)
+        manager.render()
