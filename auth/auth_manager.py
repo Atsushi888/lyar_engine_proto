@@ -109,30 +109,15 @@ class AuthManager:
         return self._fallback_login()
 
     def role(self) -> Role:
-        """
-        現在のセッションの権限を返す。
-        LyraSystem はこれを見て表示可否を制御する。
-        """
-        # 開発用バイパス
-        if self._bypass:
+        if bool(self._secrets.get("auth", {}).get("bypass", False)):
             return Role.ADMIN
-
-        # 認証されてなければ ANON
         if not st.session_state.get("authentication_status"):
-            return Role.ANON
-
+            return Role.USER  # ← ここを修正！
         uname = st.session_state.get("username")
-        if not uname:
-            return Role.USER
-
-        user_tbl: Dict[str, Any] = self._creds.get("usernames", {})
-        meta = user_tbl.get(uname, {})
+        meta = (self._creds.get("usernames", {}).get(uname, {})) if uname else {}
         r = str(meta.get("role", "USER")).upper()
-
-        if r == "ADMIN":
-            return Role.ADMIN
-        return Role.USER
-
+        return Role.ADMIN if r == "ADMIN" else Role.USER
+    
     def logout(self, location: str = "sidebar") -> None:
         """
         ログアウト処理。  
