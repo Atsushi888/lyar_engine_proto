@@ -11,7 +11,8 @@ class CouncilView:
     会談システムの薄いラッパー。
     実作業は CouncilManager.render() に丸投げ。
     """
+    def __init__( self ):
+        self.manager = CouncilManager(st.session_state)
 
     def render(self) -> None:
-        manager = CouncilManager(st.session_state)
-        manager.render()
+        self.manager.render()
