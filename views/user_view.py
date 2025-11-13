@@ -23,7 +23,7 @@ def render(self) -> None:
 
     # 上段：preflight
     with st.container():
-        self.preflight.render()
+        # self.preflight.render()
 
     st.markdown("---")  # 仕切り線はお好みで
 
