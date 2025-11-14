@@ -5,16 +5,16 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 import json
 
-from llm_router import call_with_fallback
+from llm_router import call_judge_gpt5
 
 
 class JudgeAI:
     """
-    複数モデルの応答を比較して「どちらがより良いか」を判定するクラス。
+    複数モデルの応答を比較して「どれがより良いか」を判定するクラス。
 
     責務:
         - llm_meta["models"] から比較対象モデルを選ぶ
-        - LLM に評価を依頼する
+        - LLM（GPT-5.1）に評価を依頼する
         - winner / score_diff / comment を含む dict を返す
         - 必要であれば llm_meta["judge"] に結果を書き込む
 
@@ -22,45 +22,76 @@ class JudgeAI:
     """
 
     def __init__(self) -> None:
-        # 将来的に「審判専用モデル」を切り替えたくなった場合、
-        # ここに設定を増やす余地を残しておきます。
+        # 将来的に「審判専用モデル」を差し替えたくなった場合、
+        # JUDGE_MODEL 環境変数で切り替えられるようにしてあります。
         pass
 
-    # ===== エントリポイント =====
-    def run(self, llm_meta: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, llm_meta: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        llm_meta を受け取り、models から 2 つを選んで審議を行います。
+        llm_meta を受け取り、models から 2〜3 モデルを選んで審議を行います。
 
-        - models が 2 つ未満の場合も、ビューが扱いやすい dict を必ず返す
+        - models が 2 つ未満の場合は None を返します
         - 成功時は judge dict を返し、llm_meta["judge"] にも同じものを格納します
+
+        3モデル想定のロジック:
+            1. まず gpt4o vs hermes を比較（あれば）
+            2. その勝者 vs gpt5 を再比較
+            3. 最終勝者を judge["winner"] に格納
         """
-        # 想定外の型への防御
         if not isinstance(llm_meta, dict):
-            judge = self._build_empty_result(
-                comment="llm_meta が dict ではないため、審議できません。"
-            )
-            llm_meta["judge"] = judge
-            return judge
+            return None
 
         models = llm_meta.get("models")
         if not isinstance(models, dict) or len(models) < 2:
-            judge = self._build_empty_result(
-                comment="有効なモデル数が 2 未満のため、審議できません。"
+            return None
+
+        # 3モデルある場合はトーナメント方式
+        if "gpt5" in models and ("gpt4o" in models or "hermes" in models):
+            trace: Dict[str, Any] = {}
+
+            # stage1: gpt4o vs hermes（両方あれば）
+            base_winner: Optional[str] = None
+            stage1_result: Optional[Dict[str, Any]] = None
+
+            if "gpt4o" in models and "hermes" in models:
+                stage1_result = self._evaluate_pair(
+                    prompt=llm_meta.get("prompt_preview") or "",
+                    reply_a=self._get_reply(models, "gpt4o"),
+                    reply_b=self._get_reply(models, "hermes"),
+                    label_a="gpt4o",
+                    label_b="hermes",
+                )
+                base_winner = stage1_result.get("winner") or "gpt4o"
+                trace["stage1"] = stage1_result
+            else:
+                # どちらか片方しかない場合は、それをベース勝者とみなす
+                base_winner = "gpt4o" if "gpt4o" in models else "hermes"
+
+            # stage2: base_winner vs gpt5
+            stage2_result = self._evaluate_pair(
+                prompt=llm_meta.get("prompt_preview") or "",
+                reply_a=self._get_reply(models, base_winner),
+                reply_b=self._get_reply(models, "gpt5"),
+                label_a=base_winner,
+                label_b="gpt5",
             )
-            llm_meta["judge"] = judge
-            return judge
+            trace["stage2"] = stage2_result
 
-        # 比較対象ペアを決める
+            # 最終結果は stage2 の値を表に出す
+            final = dict(stage2_result)
+            final["trace"] = trace
+
+            llm_meta["judge"] = final
+            return final
+
+        # 2モデルしかない / gpt5 がいない場合は、従来どおり 1 回比較
         a_key, b_key = self._choose_pair(models)
-
         prompt = llm_meta.get("prompt_preview") or ""
-        reply_a = str(models[a_key].get("reply") or models[a_key].get("text") or "")
-        reply_b = str(models[b_key].get("reply") or models[b_key].get("text") or "")
 
         judge = self._evaluate_pair(
             prompt=prompt,
-            reply_a=reply_a,
-            reply_b=reply_b,
+            reply_a=self._get_reply(models, a_key),
+            reply_b=self._get_reply(models, b_key),
             label_a=a_key,
             label_b=b_key,
         )
@@ -68,7 +99,12 @@ class JudgeAI:
         llm_meta["judge"] = judge
         return judge
 
-    # ===== モデル選択 =====
+    # ------------------------------------------------------------
+
+    def _get_reply(self, models: Dict[str, Any], key: str) -> str:
+        info = models.get(key) or {}
+        return str(info.get("reply") or info.get("text") or "")
+
     def _choose_pair(self, models: Dict[str, Any]) -> Tuple[str, str]:
         """
         比較対象とする 2 モデルのキーを選びます。
@@ -84,11 +120,10 @@ class JudgeAI:
         if len(keys) >= 2:
             return keys[0], keys[1]
 
-        # ここに来るのは len(models) < 2 のときだけだが、
-        # 型安全のため一応同じキーを返しておく。
+        # ここに来るのは len(models) < 2 のときだけですが、
+        # 型安全のため一応同じキーを返しておきます。
         return keys[0], keys[0]
 
-    # ===== LLM による評価本体 =====
     def _evaluate_pair(
         self,
         prompt: str,
@@ -98,16 +133,16 @@ class JudgeAI:
         label_b: str,
     ) -> Dict[str, Any]:
         """
-        実際に LLM に A/B 比較を依頼し、判定結果を dict で返します。
+        実際に LLM（GPT-5.1）に A/B 比較を依頼し、判定結果を dict で返します。
 
         戻り値の例:
             {
                 "winner": "gpt4o",
                 "score_diff": 0.6,
                 "comment": "...",
-                "raw_text": "... LLM の生出力 ...",
-                "raw_json": { "winner": "A", "score_diff": 0.6, "comment": "…" },
-                "route": "gpt",
+                "raw_text": "<LLM の生出力>",
+                "raw_json": {...},   # パースに成功した場合のみ
+                "route": "judge-gpt5",
                 "pair": {"A": "gpt4o", "B": "hermes"},
             }
         """
@@ -144,41 +179,37 @@ class JudgeAI:
             {"role": "user", "content": user_content},
         ]
 
-        text, meta = call_with_fallback(
+        # ★ 審判は GPT-5.1 固定（llm_router.call_judge_gpt5）
+        text, meta = call_judge_gpt5(
             messages=messages,
             temperature=0.0,
             max_tokens=300,
         )
 
-        # ベースとなる結果（ここに上書きしていく）
+        parsed = self._safe_parse_json(text)
+
         result: Dict[str, Any] = {
-            "winner": None,           # 後で label_a / label_b になる
+            "winner": None,
             "score_diff": 0.0,
             "comment": "",
-            "raw_text": text,         # LLM の生出力
-            "raw_json": None,         # パースに成功したら dict を入れる
+            "raw_text": text,
+            "raw_json": parsed if isinstance(parsed, dict) else None,
             "route": meta.get("route"),
             "pair": {"A": label_a, "B": label_b},
         }
 
-        parsed = self._safe_parse_json(text)
         if isinstance(parsed, dict):
-            result["raw_json"] = parsed
-
-            # winner の決定
             winner_raw = parsed.get("winner")
             if winner_raw == "A":
                 result["winner"] = label_a
             elif winner_raw == "B":
                 result["winner"] = label_b
 
-            # スコア差
             try:
                 result["score_diff"] = float(parsed.get("score_diff", 0.0))
             except Exception:
                 result["score_diff"] = 0.0
 
-            # コメント
             comment = parsed.get("comment")
             if isinstance(comment, str):
                 result["comment"] = comment.strip()
@@ -193,21 +224,6 @@ class JudgeAI:
                 )
 
         return result
-
-    # ===== ヘルパ =====
-    def _build_empty_result(self, comment: str) -> Dict[str, Any]:
-        """
-        審議不能なケース用の共通フォーマット。
-        """
-        return {
-            "winner": "―",
-            "score_diff": 0.0,
-            "comment": comment,
-            "raw_text": "",
-            "raw_json": None,
-            "route": None,
-            "pair": {},
-        }
 
     def _safe_parse_json(self, text: str) -> Optional[Dict[str, Any]]:
         """
