@@ -1,49 +1,45 @@
 # llm_router.py
+# OpenAI / OpenRouter まわりの生呼び出しをまとめた層
+
+from __future__ import annotations
 
 import os
 from typing import Any, Dict, List, Tuple
 
 from openai import OpenAI, BadRequestError
 
+# ========= 環境変数 =========
 
-# ====== 環境変数 ======
+# 会話本体（フローリア）のメインモデル
 OPENAI_API_KEY_INITIAL = os.getenv("OPENAI_API_KEY")
-
-# メイン側（GPT系）のモデル名（物語本体用）
 MAIN_MODEL = os.getenv("OPENAI_MAIN_MODEL", "gpt-4o")
 
-# ★ Judge / GPT-5.1 用
-#   ・審判専用モデル（デフォルト：gpt-5.1）
-#   ・「3人目の候補フローリア」も基本は同じモデルを使う
-JUDGE_MODEL = os.getenv("OPENAI_JUDGE_MODEL", "gpt-5.1")
-GPT5_CANDIDATE_MODEL = os.getenv("OPENAI_GPT5_CANDIDATE_MODEL", JUDGE_MODEL)
+# Judge 用モデル（デフォルトは MAIN_MODEL と同じにしておく）
+JUDGE_MODEL = os.getenv("OPENAI_JUDGE_MODEL", MAIN_MODEL)
 
-# ★ OpenRouter / Hermes 用
+# OpenRouter / Hermes 用
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API_KEY_INITIAL = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 HERMES_MODEL = os.getenv("OPENROUTER_HERMES_MODEL", "nousresearch/hermes-4-70b")
 
-if not OPENROUTER_API_KEY:
-    raise ValueError("OPENROUTER_API_KEY is not set. Check Streamlit Secrets or environment.")
+
+# ========= 共通 OpenAI 呼び出しヘルパ =========
+
+def _ensure_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY_INITIAL
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY が設定されていません。")
+    return OpenAI(api_key=api_key)
 
 
-# ===== 共通 OpenAI 呼び出しヘルパ =====
 def _call_openai_model(
     model: str,
     messages: List[Dict[str, str]],
     temperature: float,
     max_tokens: int,
 ) -> Tuple[str, Dict[str, Any]]:
-    """
-    任意の OpenAI Chat モデルを叩く共通ヘルパ。
-    GPT-4o / GPT-5.1 / それ以外もここ経由。
-    """
-    api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY_INITIAL
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY が設定されていません。")
-
-    client = OpenAI(api_key=api_key)
+    client = _ensure_openai_client()
 
     resp = client.chat.completions.create(
         model=model,
@@ -53,7 +49,6 @@ def _call_openai_model(
     )
 
     text = resp.choices[0].message.content or ""
-
     usage: Dict[str, Any] = {}
     if getattr(resp, "usage", None) is not None:
         usage = {
@@ -61,35 +56,35 @@ def _call_openai_model(
             "completion_tokens": getattr(resp.usage, "completion_tokens", None),
             "total_tokens": getattr(resp.usage, "total_tokens", None),
         }
-
     return text, usage
 
 
-# ====== GPT-4o（物語本体用） ======
+# ========= GPT-4o（物語本体） =========
+
 def _call_gpt(
     messages: List[Dict[str, str]],
     temperature: float,
     max_tokens: int,
 ) -> Tuple[str, Dict[str, Any]]:
-    """
-    物語本体用の GPT 系メインモデル（デフォルト gpt-4o）。
-    """
     return _call_openai_model(MAIN_MODEL, messages, temperature, max_tokens)
 
 
-# ====== GPT-5.1（候補フローリア用） ======
-def _call_gpt5_candidate(
+# ========= Judge 用モデル（GPT-5.1 想定） =========
+
+def _call_judge_model(
     messages: List[Dict[str, str]],
     temperature: float,
     max_tokens: int,
 ) -> Tuple[str, Dict[str, Any]]:
     """
-    マルチAI候補としての GPT-5.1。
+    審判用モデル呼び出し。
+    実際に使うモデル名は環境変数 OPENAI_JUDGE_MODEL で差し替え可能。
     """
-    return _call_openai_model(GPT5_CANDIDATE_MODEL, messages, temperature, max_tokens)
+    return _call_openai_model(JUDGE_MODEL, messages, temperature, max_tokens)
 
 
-# ====== OpenRouter / Hermes ======
+# ========= OpenRouter / Hermes =========
+
 def _call_hermes(
     messages: List[Dict[str, str]],
     temperature: float,
@@ -104,9 +99,8 @@ def _call_hermes(
 
     client_or = OpenAI(
         base_url=OPENROUTER_BASE_URL,
-        api_key=OPENROUTER_API_KEY,
+        api_key=api_key,
     )
-
     try:
         resp = client_or.chat.completions.create(
             model=HERMES_MODEL,
@@ -115,17 +109,16 @@ def _call_hermes(
             max_tokens=max_tokens,
         )
     except BadRequestError as e:
-        # 400 エラー（モデル非対応プロンプト等）はテキストとして返す
+        # 400 系はここでテキスト化して返す
         return f"[Hermes BadRequestError: {e}]", {
             "error": str(e),
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return f"[Hermes Error: {e}]", {
             "error": str(e),
         }
 
     text = resp.choices[0].message.content or ""
-
     usage: Dict[str, Any] = {}
     if getattr(resp, "usage", None) is not None:
         usage = {
@@ -136,15 +129,16 @@ def _call_hermes(
     return text, usage
 
 
-# ====== 公開インターフェース ======
+# ========= 公開 API =========
+
 def call_with_fallback(
     messages: List[Dict[str, str]],
     temperature: float = 0.7,
     max_tokens: int = 800,
 ) -> Tuple[str, Dict[str, Any]]:
     """
-    物語本体用：GPT 系メイン（gpt-4o 等）を呼び出す。
-    例外時は空文字とエラー meta を返す。
+    以前は GPT → Hermes フォールバックだったが、
+    今は GPT-4o 単体のみをメインとして返す。
     """
     meta: Dict[str, Any] = {}
     try:
@@ -153,7 +147,7 @@ def call_with_fallback(
         meta["model_main"] = MAIN_MODEL
         meta["usage_main"] = usage
         return text, meta
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         meta["route"] = "error"
         meta["gpt_error"] = str(e)
         return "", meta
@@ -176,36 +170,19 @@ def call_hermes(
     return text, meta
 
 
-def call_gpt5_candidate(
+def call_judge_model(
     messages: List[Dict[str, str]],
     temperature: float = 0.7,
     max_tokens: int = 800,
 ) -> Tuple[str, Dict[str, Any]]:
     """
-    マルチAI用の 3 人目候補として GPT-5.1 を呼ぶ。
-    ※ 物語本体の返答にはまだ採用しない（Composer / Judge 用候補）
+    Judge 用モデル（GPT-5.1 想定）呼び出し。
+    - Multi AI の 3つ目の候補としても利用可能
+    - JudgeAI 内部から審判用としても利用
     """
-    text, usage = _call_gpt5_candidate(messages, temperature, max_tokens)
+    text, usage = _call_judge_model(messages, temperature, max_tokens)
     meta: Dict[str, Any] = {
-        "route": "gpt5-candidate",
-        "model_main": GPT5_CANDIDATE_MODEL,
-        "usage_main": usage,
-    }
-    return text, meta
-
-
-def call_judge_gpt5(
-    messages: List[Dict[str, str]],
-    temperature: float = 0.0,
-    max_tokens: int = 800,
-) -> Tuple[str, Dict[str, Any]]:
-    """
-    JudgeAI 専用：審判として GPT-5.1 を叩く。
-    物語用とは完全に独立した呼び出し。
-    """
-    text, usage = _call_openai_model(JUDGE_MODEL, messages, temperature, max_tokens)
-    meta: Dict[str, Any] = {
-        "route": "judge-gpt5",
+        "route": "gpt-judge",
         "model_main": JUDGE_MODEL,
         "usage_main": usage,
     }
